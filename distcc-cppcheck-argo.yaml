@@ -1,0 +1,65 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: distcc-cppcheck
+spec:
+  entrypoint: main
+  templates:
+    - name: main
+      steps:
+        - - name: distccd1
+            template: distccd
+          - name: distccd2
+            template: distccd
+        - - name: build
+            template: build
+            arguments:
+              parameters:
+                - name: hosts
+                  value: '{{steps.distccd1.ip}} {{steps.distccd2.ip}}'
+    - name: build
+      inputs:
+        artifacts:
+          - name: cppcheck-code
+            path: /code
+            git:
+              repo: https://github.com/uhziel/cppcheck.git
+              revision: "1.90-h3d1"
+        parameters:
+          - name: hosts
+      script:
+        image: uhziel/distcc-env
+        command:
+          - "bash"
+        source: |
+          set -eux
+          cd /code && mkdir buildrelease && cd buildrelease
+          export DISTCC_HOSTS="{{inputs.parameters.hosts}}"
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER="distcc" ..
+          make -j4
+    - name: distccd
+      daemon: true
+      container:
+        image: uhziel/distcc
+        command:
+          - "distccd"
+          - "--daemon"
+          - "--no-detach"
+          - "--user"
+          - "distccd"
+          - "--port"
+          - "3632"
+          - "--stats"
+          - "--stats-port"
+          - "3633"
+          - "--log-stderr"
+          - "--listen"
+          - "0.0.0.0"
+        args:
+          - "--allow"
+          - "0.0.0.0/0"
+          - "--nice"
+          - "5"
+          - "--jobs"
+          - "1"
+      

@@ -3,6 +3,10 @@ kind: Workflow
 metadata:
   name: distcc-cppcheck
 spec:
+  volumes:
+    - name: code
+      persistentVolumeClaim:
+        claimName: code
   entrypoint: main
   templates:
     - name: main
@@ -16,27 +20,24 @@ spec:
             arguments:
               parameters:
                 - name: hosts
-                  value: '{{steps.distccd1.ip}} {{steps.distccd2.ip}}'
+                  value: '{{steps.distccd1.ip}},cpp,lzo {{steps.distccd2.ip}},cpp,lzo'
     - name: build
       inputs:
-        artifacts:
-          - name: cppcheck-code
-            path: /code
-            git:
-              repo: https://github.com/uhziel/cppcheck.git
-              revision: "1.90-h3d1"
         parameters:
           - name: hosts
       script:
         image: uhziel/distcc-env
         command:
           - "bash"
+        volumeMounts:
+          - mountPath: /code
+            name: code
         source: |
           set -eux
-          cd /code && mkdir buildrelease && cd buildrelease
+          cd /tmp && mkdir buildrelease && cd buildrelease
           export DISTCC_HOSTS="{{inputs.parameters.hosts}}"
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER="distcc" ..
-          make -j4
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER="distcc" /code
+          distcc-pump make -j4
     - name: distccd
       daemon: true
       container:

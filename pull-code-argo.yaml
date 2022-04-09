@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: pull-code
+spec:
+  volumes:
+    - name: code
+      persistentVolumeClaim:
+        claimName: code
+  entrypoint: main
+  templates:
+    - name: main
+      container:
+        image: alpine/git
+        command:
+          - "git"
+        args:
+          - "clone"
+          - "--single-branch"
+          - "--depth"
+          - "1"
+          - "--branch"
+          - "1.90-h3d1"
+          - "https://github.com/uhziel/cppcheck.git"
+          - "/code"
+        volumeMounts:
+          - mountPath: /code
+            name: code

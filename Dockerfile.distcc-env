@@ -12,5 +12,6 @@ RUN set -eux; \
         apt-get install -y --no-install-recommends \
             cmake \
             distcc \
+            distcc-pump \
         ; \
         rm -rf /var/lib/apt/lists/*;
